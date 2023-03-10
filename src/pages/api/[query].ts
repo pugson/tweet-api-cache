@@ -1,5 +1,6 @@
 import Cors from "cors";
 import type { NextApiRequest, NextApiResponse } from "next";
+import axios from "axios";
 
 // Initializing the cors middleware
 // You can read more about the available options here: https://github.com/expressjs/cors#configuration-options
@@ -25,7 +26,23 @@ export default async function handler(req: any, res: any) {
   // Run the middleware
   await runMiddleware(req, res, cors);
   res.setHeader("Cache-Control", "s-maxage=604800000");
-  const { query } = req.query;
+  const { query, passkey } = req.query;
+  const isAuthorized: boolean = passkey === process.env.PASSKEY;
 
-  res.status(200).json({ query });
+  if (!isAuthorized) {
+    return res.status(401).json({
+      error: "Unauthorized. Make sure you have the correct passkey.",
+    });
+  }
+
+  const tweetMetadata = await axios.get(
+    `https://api.twitter.com/1.1/statuses/show.json?id=${query}&tweet_mode=extended`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.TWITTER_TOKEN}`,
+      },
+    }
+  );
+
+  res.status(200).json(tweetMetadata.data);
 }
